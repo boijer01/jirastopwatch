@@ -190,9 +190,9 @@ namespace StopWatch
             OpenIssueInBrowser(cbJira.Text);
         }
 
-
         private void UpdateSummary()
         {
+            UpdateRemainingEstimate();
 
             if (cbJira.Text == "")
             {
@@ -227,15 +227,13 @@ namespace StopWatch
             );
         }
 
-        private void UpdateRemainingEstimate(WorklogForm  worklogForm)
+        private void UpdateRemainingEstimate(WorklogForm worklogForm = null)
         {
-            RemainingEstimate = "";
-            RemainingEstimateSeconds = -1;
-
-            if (cbJira.Text == "")
+            if (cbJira.Text == "" || !jiraClient.SessionValid)
+            {
+                this.InvokeIfRequired(() => lblRemainingEstimate.Text = "");
                 return;
-            if (!jiraClient.SessionValid)
-                return;
+            }
 
             Task.Factory.StartNew(
                 () =>
@@ -246,15 +244,24 @@ namespace StopWatch
                     );
 
                     TimetrackingFields timetracking = jiraClient.GetIssueTimetracking(key);
-                    if (timetracking == null)
+                    if (timetracking == null || timetracking.RemainingEstimate == null)
+                    {
+                        this.InvokeIfRequired(() => {
+                            lblRemainingEstimate.Text = "";
+                        });
                         return;
+                    }
 
                     this.InvokeIfRequired(
-                        () => RemainingEstimate = timetracking.RemainingEstimate
+                        () => {
+                            RemainingEstimate = timetracking.RemainingEstimate;
+                            lblRemainingEstimate.Text = $"Remaining: {RemainingEstimate}";
+                        }
                     );
                     this.InvokeIfRequired(
                         () => RemainingEstimateSeconds = timetracking.RemainingEstimateSeconds
                     );
+
                     if (worklogForm != null)
                     {
                         this.InvokeIfRequired(
@@ -262,7 +269,7 @@ namespace StopWatch
                         );
                         this.InvokeIfRequired(
                             () => worklogForm.RemainingEstimateSeconds = timetracking.RemainingEstimateSeconds
-                        );                        
+                        );
                     }
                 }
             );
@@ -322,9 +329,18 @@ namespace StopWatch
             this.lblSummary.Font = new System.Drawing.Font("Microsoft Sans Serif", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblSummary.Location = new System.Drawing.Point(11, 36);
             this.lblSummary.Name = "lblSummary";
-            this.lblSummary.Size = new System.Drawing.Size(482, 17);
+            this.lblSummary.Size = new System.Drawing.Size(380, 17);
             this.lblSummary.TabIndex = 6;
             this.lblSummary.MouseUp += new System.Windows.Forms.MouseEventHandler(this.lblSummary_MouseUp);
+            //
+            // lbmRemaining
+            //
+            this.lblRemainingEstimate.Font = new System.Drawing.Font("Microsoft Sans Serif", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblRemainingEstimate.Location = new System.Drawing.Point(395, 36);
+            this.lblRemainingEstimate.Name = "lblRemainingEstimate";
+            this.lblRemainingEstimate.Size = new System.Drawing.Size(110, 17);
+            this.lblRemainingEstimate.TabIndex = 8;
+            this.lblRemainingEstimate.TextAlign = System.Drawing.ContentAlignment.TopRight;
             // 
             // btnRemoveIssue
             // 
@@ -393,6 +409,7 @@ namespace StopWatch
             // IssueControl
             // 
             this.BackColor = System.Drawing.SystemColors.Window;
+            this.Controls.Add(this.lblRemainingEstimate);
             this.Controls.Add(this.btnRemoveIssue);
             this.Controls.Add(this.btnPostAndReset);
             this.Controls.Add(this.lblSummary);
@@ -742,6 +759,7 @@ namespace StopWatch
         private Button btnStartStop;
         private Button btnReset;
         private Label lblSummary;
+        private Label lblRemainingEstimate;
 
         private ToolTip ttIssue;
         private System.ComponentModel.IContainer components;
